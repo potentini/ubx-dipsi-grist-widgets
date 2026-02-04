@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gantt multi-niveau (Grist)</title>
+
+  <!-- DHTMLX Gantt (GPL) -->
+  <link rel="stylesheet" href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css">
+  <script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+
+  <!-- Grist plugin API -->
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
+  <link rel="stylesheet" href="./widget.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="left">
+      <button id="btnSettings" class="btn">Paramètres</button>
+
+      <div class="toolbar">
+        <button id="btnPrev" class="btn btn-ghost" title="Période précédente">◀</button>
+        <button id="btnToday" class="btn btn-ghost">Aujourd’hui</button>
+        <button id="btnNext" class="btn btn-ghost" title="Période suivante">▶</button>
+
+        <select id="scale" class="select" title="Échelle">
+          <option value="day">Jour</option>
+          <option value="week" selected>Semaine</option>
+          <option value="month">Mois</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="right">
+      <span id="status" class="status">—</span>
+    </div>
+  </header>
+
+  <div id="gantt_here" class="gantt"></div>
+
+  <!-- Drawer Paramètres -->
+  <aside id="settingsDrawer" class="drawer" aria-hidden="true">
+    <div class="drawer__header">
+      <div>
+        <div class="drawer__title">Paramètres</div>
+        <div class="drawer__subtitle">Choisir tables et colonnes par niveau</div>
+      </div>
+      <button id="btnCloseSettings" class="btn btn-ghost">Fermer</button>
+    </div>
+
+    <div class="drawer__body">
+      <div class="hint">
+        Chaque niveau = une table. Le niveau 1 n’a pas de parent. Les niveaux suivants doivent avoir une colonne “Parent” pointant vers l’ID métier du niveau précédent.
+      </div>
+
+      <div class="row">
+        <label class="label">Nombre de niveaux</label>
+        <input id="levelsCount" type="number" min="1" max="6" value="3" class="input">
+        <button id="btnBuildLevels" class="btn">Appliquer</button>
+      </div>
+
+      <div id="levelsContainer" class="levels"></div>
+    </div>
+
+    <div class="drawer__footer">
+      <button id="btnSave" class="btn btn-primary">Enregistrer</button>
+      <button id="btnReload" class="btn">Recharger données</button>
+    </div>
+  </aside>
+
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <script src="./widget.js"></script>
+</body>
+</html>
