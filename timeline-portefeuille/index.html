@@ -1,77 +1,653 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gantt multi-niveau (Grist)</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Gantt hiérarchique Grist</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- DHTMLX Gantt (GPL) -->
-  <link rel="stylesheet" href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css">
-  <script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 
-  <!-- Grist plugin API -->
-  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <style>
+      :root {
+        --primary: #4f46e5;
+        --primary-dark: #4338ca;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        --cell-width: 32px;
+      }
 
-  <link rel="stylesheet" href="./widget.css">
-</head>
+      * { box-sizing: border-box; }
 
-<body>
-  <header class="topbar">
-    <div class="left">
-      <button id="btnSettings" class="btn">Paramètres</button>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
 
-      <div class="toolbar">
-        <button id="btnPrev" class="btn btn-ghost" title="Période précédente">◀</button>
-        <button id="btnToday" class="btn btn-ghost">Aujourd’hui</button>
-        <button id="btnNext" class="btn btn-ghost" title="Période suivante">▶</button>
+      body {
+        display: flex;
+        flex-direction: column;
+      }
 
-        <select id="scale" class="select" title="Échelle">
-          <option value="day">Jour</option>
-          <option value="week" selected>Semaine</option>
-          <option value="month">Mois</option>
-        </select>
-      </div>
-    </div>
+      .header {
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
 
-    <div class="right">
-      <span id="status" class="status">—</span>
-    </div>
-  </header>
+      .header h1 {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+      }
 
-  <div id="gantt_here" class="gantt"></div>
+      .header h1 span {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
 
-  <!-- Drawer Paramètres -->
-  <aside id="settingsDrawer" class="drawer" aria-hidden="true">
-    <div class="drawer__header">
+      .mapping-info {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .control {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .control label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .control select {
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card-bg);
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+
+      .btn {
+        padding: 5px 9px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card-bg);
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.78rem;
+        transition: all 0.12s ease;
+        user-select: none;
+      }
+
+      .btn:hover { background: var(--bg); }
+
+      .btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      .btn-small {
+        font-size: 0.72rem;
+        padding: 3px 7px;
+      }
+
+      .zoom-controls {
+        display: flex;
+        gap: 4px;
+      }
+
+      .zoom-controls .btn {
+        padding-inline: 7px;
+      }
+
+      .current-period {
+        font-weight: 700;
+        min-width: 220px;
+        text-align: center;
+        color: var(--text);
+        font-size: 0.78rem;
+      }
+
+      .gantt-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 60px);
+        overflow: hidden;
+      }
+
+      .gantt-header-row {
+        display: flex;
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .task-list-header {
+        width: 280px;
+        min-width: 280px;
+        padding: 6px 10px;
+        font-weight: 800;
+        border-right: 1px solid var(--border);
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.8rem;
+      }
+
+      .timeline-header {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      .time-years,
+      .time-months,
+      .time-weeks,
+      .time-days {
+        display: grid;
+      }
+
+      .time-cell {
+        min-width: var(--cell-width);
+        padding: 2px 2px;
+        text-align: center;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        border-right: 1px solid var(--border);
+        white-space: nowrap;
+      }
+
+      .time-cell.weekend { background: #fef2f2; }
+      .time-cell.today {
+        background: #dbeafe;
+        color: var(--primary);
+        font-weight: 800;
+      }
+
+      .time-months {
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+
+      .time-weeks,
+      .time-days {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .gantt-body {
+        display: flex;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: var(--card-bg);
+        align-items: flex-start;
+      }
+
+      .task-list {
+        width: 280px;
+        min-width: 280px;
+        border-right: 1px solid var(--border);
+        background: var(--card-bg);
+      }
+
+      .timeline-body {
+        flex: 1;
+        position: relative;
+        overflow: visible;
+        background: var(--card-bg);
+      }
+
+      .timeline-grid {
+        position: relative;
+        width: 100%;
+        min-height: 100%;
+        flex: 0 0 auto;
+      }
+
+      .task-row {
+        display: flex;
+        align-items: center;
+        padding: 6px 9px;
+        border-bottom: 1px solid var(--border);
+        height: 34px;
+        gap: 6px;
+        transition: background 0.12s ease;
+      }
+
+      .task-row:hover { background: var(--bg); }
+
+      .task-row.parent-row {
+        font-weight: 700;
+        background: #f9fafb;
+        cursor: grab;
+      }
+
+      .task-row.child-row {
+        padding-left: 24px;
+        font-size: 0.82rem;
+        cursor: grab;
+      }
+
+      .task-row.dragging {
+        opacity: 0.7;
+        background: #e0f2fe;
+      }
+
+      .task-row.drag-over {
+        border-top: 2px solid var(--primary);
+      }
+
+      .parent-toggle {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.8rem;
+        width: 16px;
+        text-align: center;
+        padding: 0;
+      }
+
+      .task-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .task-name {
+        font-weight: 600;
+        font-size: 0.84rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .task-meta {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .grid-row {
+        display: flex;
+        height: 34px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .grid-cell {
+        min-width: var(--cell-width);
+        height: 100%;
+        border-right: 1px solid #f1f5f9;
+      }
+
+      .grid-cell.weekend {
+        background: #fef2f2;
+      }
+
+      .gantt-bar {
+        position: absolute;
+        height: 18px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6px;
+        font-size: 0.72rem;
+        color: #fff;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: visible;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        z-index: 2;
+      }
+
+      .gantt-bar:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .gantt-bar.parent { opacity: 0.9; }
+
+      .bar-label.inside {
+        position: relative;
+        z-index: 1;
+        color: #fff;
+        text-shadow: 0 1px 1px rgba(0,0,0,0.28);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .bar-label.outside {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translate(4px, -50%);
+        white-space: nowrap;
+        color: var(--text);
+        text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+      }
+
+      .gantt-milestone {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        transform: translate(-50%, -50%) rotate(45deg);
+        transform-origin: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+        cursor: grab;
+        z-index: 3;
+        border: 2px solid #111827;
+        border-radius: 1px;
+      }
+
+      .milestone-label {
+        position: absolute;
+        white-space: nowrap;
+        font-size: 0.7rem;
+        color: var(--text);
+        text-shadow: 0 1px 2px rgba(255,255,255,0.9);
+        transform: translate(6px, -50%);
+        z-index: 4;
+      }
+
+      .group-row-label {
+        position: absolute;
+        white-space: nowrap;
+        font-size: 0.72rem;
+        color: var(--text);
+        text-shadow: 0 1px 2px rgba(255,255,255,0.9);
+        transform: translate(0, -50%);
+        z-index: 4;
+      }
+
+      .today-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--danger);
+        opacity: 0.7;
+        z-index: 5;
+      }
+
+      .legend {
+        padding: 5px 12px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background: var(--card-bg);
+        border-top: 1px solid var(--border);
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .legend-bar {
+        width: 16px;
+        height: 7px;
+        border-radius: 4px;
+        background: var(--primary);
+      }
+
+      .legend-milestone {
+        width: 10px;
+        height: 10px;
+        background: var(--danger);
+        transform: rotate(45deg);
+        border: 2px solid #111827;
+        border-radius: 1px;
+      }
+
+      .empty {
+        padding: 8px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .tooltip {
+        position: fixed;
+        background: #0f172a;
+        color: #fff;
+        padding: 7px 9px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        z-index: 1000;
+        max-width: 280px;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.26);
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.08s ease, transform 0.08s ease;
+      }
+
+      .tooltip.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .tooltip-title {
+        font-weight: 800;
+        margin-bottom: 3px;
+      }
+
+      .tooltip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 0.7rem;
+        opacity: 0.9;
+      }
+
+      .tooltip-extra {
+        margin-top: 4px;
+        font-size: 0.7rem;
+      }
+
+      .tooltip-extra div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .toast-container {
+        position: fixed;
+        bottom: 14px;
+        right: 14px;
+        z-index: 2000;
+      }
+
+      .toast {
+        padding: 8px 11px;
+        background: #0f172a;
+        color: #fff;
+        border-radius: 10px;
+        margin-top: 6px;
+        font-size: 0.8rem;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        animation: slideIn 0.25s ease;
+      }
+
+      .toast.success { background: var(--success); }
+      .toast.error { background: var(--danger); }
+
+      @keyframes slideIn {
+        from { transform: translateX(60px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+
+      .drag-bubble {
+        position: fixed;
+        z-index: 3000;
+        pointer-events: none;
+        background: #0f172a;
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 5px 8px;
+        border-radius: 9px;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.26);
+        white-space: nowrap;
+        transform: translate(12px, -50%);
+        opacity: 0;
+        transition: opacity 0.08s ease;
+      }
+
+      .drag-bubble.visible { opacity: 1; }
+
+      .drag-bubble .muted {
+        opacity: 0.8;
+        font-weight: 600;
+        margin-left: 6px;
+      }
+
+      .gantt-container.sidebar-collapsed .task-list,
+      .gantt-container.sidebar-collapsed .task-list-header {
+        display: none;
+      }
+
+      @media (max-width: 700px) {
+        .task-list-header,
+        .task-list {
+          width: 200px;
+          min-width: 200px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
       <div>
-        <div class="drawer__title">Paramètres</div>
-        <div class="drawer__subtitle">Choisir tables et colonnes par niveau</div>
-      </div>
-      <button id="btnCloseSettings" class="btn btn-ghost">Fermer</button>
-    </div>
-
-    <div class="drawer__body">
-      <div class="hint">
-        Chaque niveau = une table. Le niveau 1 n’a pas de parent. Les niveaux suivants doivent avoir une colonne “Parent” pointant vers l’ID métier du niveau précédent.
+        <h1>
+          Timeline
+          <span>parent / enfant · éditable</span>
+        </h1>
+        <div id="mappingInfo" class="mapping-info">
+          Colonnes mappées : en attente…
+        </div>
       </div>
 
-      <div class="row">
-        <label class="label">Nombre de niveaux</label>
-        <input id="levelsCount" type="number" min="1" max="6" value="3" class="input">
-        <button id="btnBuildLevels" class="btn">Appliquer</button>
+      <div class="header-actions">
+        <div class="control">
+          <label for="colorFieldSelect">Couleur par</label>
+          <select id="colorFieldSelect"></select>
+        </div>
+
+        <button class="btn btn-small" id="expandAllBtn">Tout déplier</button>
+        <button class="btn btn-small" id="collapseAllBtn">Tout plier</button>
+        <button class="btn btn-small" id="toggleSidebarBtn">Masquer liste</button>
+        <button class="btn btn-small" id="toggleLabelsBtn">Masquer labels</button>
+        <button class="btn btn-small" id="groupChildrenBtn">Enfants : multi-lignes</button>
+
+        <button class="btn btn-small" id="prevBtn" title="Période précédente">◀</button>
+        <button class="btn btn-small" id="todayBtn" title="Positionner aujourd’hui">Aujourd’hui</button>
+        <button class="btn btn-small" id="nextBtn" title="Période suivante">▶</button>
+
+        <div class="zoom-controls">
+          <button class="btn active" data-zoom="day">Jour</button>
+          <button class="btn" data-zoom="week">Semaine</button>
+          <button class="btn" data-zoom="month">Mois</button>
+          <button class="btn" data-zoom="year">Année</button>
+          <button class="btn" data-zoom="all">Tout</button>
+        </div>
+
+        <div class="current-period" id="currentPeriod">–</div>
+      </div>
+    </div>
+
+    <div class="gantt-container" id="ganttContainer">
+      <div class="gantt-header-row">
+        <div class="task-list-header">
+          <span>Éléments</span>
+          <span id="taskCount" style="font-size: 0.72rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="timeline-header" id="timelineHeader">
+          <div class="time-years" id="yearsRow"></div>
+          <div class="time-months" id="monthsRow"></div>
+          <div class="time-weeks" id="weeksRow"></div>
+          <div class="time-days" id="daysRow"></div>
+        </div>
       </div>
 
-      <div id="levelsContainer" class="levels"></div>
+      <div class="gantt-body">
+        <div class="task-list" id="taskList">
+          <div class="empty">
+            En attente des données Grist ou du mapping des colonnes…
+          </div>
+        </div>
+        <div class="timeline-body" id="timelineBody">
+          <div class="timeline-grid" id="timelineGrid"></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-bar"></span> Tâche
+        </div>
+        <div class="legend-item">
+          <span class="legend-milestone"></span> Jalon
+        </div>
+      </div>
     </div>
 
-    <div class="drawer__footer">
-      <button id="btnSave" class="btn btn-primary">Enregistrer</button>
-      <button id="btnReload" class="btn">Recharger données</button>
+    <div class="tooltip" id="tooltip">
+      <div class="tooltip-title"></div>
+      <div class="tooltip-row"><span>Début</span><span id="ttStart"></span></div>
+      <div class="tooltip-row"><span>Fin</span><span id="ttEnd"></span></div>
+      <div class="tooltip-extra" id="ttExtra"></div>
     </div>
-  </aside>
 
-  <div id="backdrop" class="backdrop" hidden></div>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="drag-bubble" id="dragBubble"></div>
 
-  <script src="./widget.js"></script>
-</body>
+    <script src="gantt-hierarchie.js"></script>
+  </body>
 </html>
